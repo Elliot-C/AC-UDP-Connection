@@ -5,10 +5,8 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Net;
 using System.IO;
-using Windows.Networking;
-using Windows.Networking.Sockets;
-using Windows.Storage.Streams;
 using System.Runtime.InteropServices;
+using System.Net.Sockets;
 
 namespace AcUdpCommunication
 {
@@ -16,47 +14,46 @@ namespace AcUdpCommunication
     {
         private const int AC_PORT = 9996;
 
-        public ConnectionType dataType { get; private set; } // The type of data to request from the server.
-        public SessionInfo sessionInfo { get; private set; } = new SessionInfo();
-        public LapInfo lapInfo { get; private set; } = new LapInfo();
-        public CarInfo carInfo { get; private set; } = new CarInfo();
+        public ConnectionType DataType { get; private set; } // The type of data to request from the server.
+        public SessionInfo SessionInfo { get; private set; } = new SessionInfo();
+        public LapInfo LapInfo { get; private set; } = new LapInfo();
+        public CarInfo CarInfo { get; private set; } = new CarInfo();
         
-        public bool isConnected { get; private set; }
+        public bool IsConnected { get; private set; }
 
-        private HostName AcHost;
-        private DatagramSocket socket;
-        private DataWriter writer;
+        private CancellationToken cancellation;
+
+        private readonly IPEndPoint AcHost;
+        private Socket? socket;
+        private CancellationTokenSource? source;
 
         public delegate void UpdatedEventDelegate(object sender, AcUpdateEventArgs e);
-        public event UpdatedEventDelegate LapUpdate;
-        public event UpdatedEventDelegate CarUpdate;
+        public event UpdatedEventDelegate? LapUpdate;
+        public event UpdatedEventDelegate? CarUpdate;
 
         public AcUdpConnection(string IpAddress, ConnectionType mode)
         {
-            dataType = mode;
-            AcHost = new HostName(IpAddress);
-            
+            DataType = mode;
+            AcHost = new IPEndPoint(IPAddress.Parse(IpAddress), AC_PORT);
+
         }
 
         ~AcUdpConnection()
         {
             Disconnect();
-
         }
 
-        public async void Connect()
+        public async Task Connect()
         {
-            if (isConnected) return;
+            cancellation = new CancellationToken(false);
+            source = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
+            if (IsConnected) return;
             try
             {
-                socket = new DatagramSocket();
-                // Connect to the server, save the datawriter for later and send initial handshake;
-                await socket.ConnectAsync(AcHost, AC_PORT.ToString());
-                writer = new DataWriter(socket.OutputStream);
-
-                socket.MessageReceived += Socket_MessageReceived;
-                sendHandshake(AcConverter.handshaker.HandshakeOperation.Connect);
-
+                socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                await socket.ConnectAsync(AcHost);
+                SendHandshake(AcConverter.Handshaker.HandshakeOperation.Connect);
+                _ = DoReceiveAsync(socket);
             }
             catch (Exception)
             {
@@ -64,87 +61,107 @@ namespace AcUdpCommunication
             }
         }
 
+        private async Task DoReceiveAsync(Socket udpSocket)
+        {
+            byte[] buffer = new byte[512];
+
+            while (!cancellation.IsCancellationRequested)
+            {
+               
+                await udpSocket.ReceiveFromAsync(buffer, SocketFlags.None, AcHost);
+                Socket_MessageReceived(buffer);
+                
+            }
+        }
+
+
         public void Disconnect()
         {
-            // Sign off from server, then close the socket.
-            socket.MessageReceived -= Socket_MessageReceived;
-            sendHandshake(AcConverter.handshaker.HandshakeOperation.Disconnect);
-            socket.Dispose();
-            isConnected = false;
+            if (socket is not null && socket.Connected)
+            {
+                // Sign off from server, then close the socket.
+                SendHandshake(AcConverter.Handshaker.HandshakeOperation.Disconnect);
+                source?.Cancel();
+                socket.Dispose();
+                IsConnected = false;
+            }
         }
 
-        private async void sendHandshake(AcConverter.handshaker.HandshakeOperation operationId)
+        private void SendHandshake(AcConverter.Handshaker.HandshakeOperation operationId)
         {
             // Calculate handshake bytes and send them.
-            byte[] sendbytes = AcConverter.structToBytes(new AcConverter.handshaker(operationId));
-            writer.WriteBytes(sendbytes);
-            await writer.StoreAsync();
+            if (socket is not null)
+            {
+                byte[] sendbytes = AcConverter.StructToBytes(new AcConverter.Handshaker(operationId));
+                socket.SendAsync(sendbytes, SocketFlags.None);
+            }
         }
 
-        private void Socket_MessageReceived(DatagramSocket sender, DatagramSocketMessageReceivedEventArgs args)
+
+        private void Socket_MessageReceived(byte[] buffer)
         {
-            DataReader reader = args.GetDataReader();
-            byte[] receivebytes = new byte[reader.UnconsumedBufferLength];
-            reader.ReadBytes(receivebytes);
-
-            if (!isConnected) // Received data is handshake response.
+            if(buffer is null)
             {
-                // Check if it is a Handshake response-packet.
-                System.Diagnostics.Debug.Assert(receivebytes.Length == Marshal.SizeOf<AcConverter.handshakerResponse>());
+                return;
+            }
 
-                AcConverter.handshakerResponse response = AcConverter.bytesToStruct<AcConverter.handshakerResponse>(receivebytes);
+            if (!IsConnected) // Received data is handshake response.
+            {
+
+                AcConverter.HandshakerResponse response = AcConverter.BytesToStruct<AcConverter.HandshakerResponse>(buffer);
 
                 // Set session info data.
-                sessionInfo.driverName = AcHelperFunctions.SanitiseString(response.driverName);
-                sessionInfo.carName = AcHelperFunctions.SanitiseString(response.carName);
-                sessionInfo.trackName = AcHelperFunctions.SanitiseString(response.trackName);
-                sessionInfo.trackLayout = AcHelperFunctions.SanitiseString(response.trackConfig);
+                SessionInfo.DriverName = AcHelperFunctions.SanitiseString(response.driverName);
+                SessionInfo.CarName = AcHelperFunctions.SanitiseString(response.carName);
+                SessionInfo.TrackName = AcHelperFunctions.SanitiseString(response.trackName);
+                SessionInfo.TrackLayout = AcHelperFunctions.SanitiseString(response.trackConfig);
 
                 // Confirm handshake with data type.
-                sendHandshake((AcConverter.handshaker.HandshakeOperation)dataType);
-                isConnected = true;
+                SendHandshake((AcConverter.Handshaker.HandshakeOperation)DataType);
+                IsConnected = true;
             }
             else // An actual info packet!
             {
-                switch (dataType)
+                switch (DataType)
                 {
                     case ConnectionType.CarInfo:
-                        System.Diagnostics.Debug.Assert(receivebytes.Length == Marshal.SizeOf<AcConverter.RTCarInfo>());
-                        AcConverter.RTCarInfo rtcar = AcConverter.bytesToStruct<AcConverter.RTCarInfo>(receivebytes);
+                        AcConverter.RTCarInfo rtcar = AcConverter.BytesToStruct<AcConverter.RTCarInfo>(buffer);
 
-                        carInfo.speedAsKmh = rtcar.speed_Kmh;
-                        carInfo.engineRPM = rtcar.engineRPM;
-                        carInfo.Gear = rtcar.gear;
+                        CarInfo.SpeedAsKPH = rtcar.speed_Kmh;
+                        CarInfo.EngineRPM = rtcar.engineRPM;
+                        CarInfo.Gear = rtcar.gear;
 
-                        carInfo.currentLapTime = TimeSpan.FromMilliseconds(rtcar.lapTime);
-                        carInfo.lastLapTime = TimeSpan.FromMilliseconds(rtcar.lastLap);
-                        carInfo.bestLapTime = TimeSpan.FromMilliseconds(rtcar.bestLap);
+                        CarInfo.CurrentLapTime = TimeSpan.FromMilliseconds(rtcar.lapTime);
+                        CarInfo.LastLapTime = TimeSpan.FromMilliseconds(rtcar.lastLap);
+                        CarInfo.BestLapTime = TimeSpan.FromMilliseconds(rtcar.bestLap);
 
                         if (CarUpdate != null)
                         {
-                            AcUpdateEventArgs updateArgs = new AcUpdateEventArgs();
-                            updateArgs.carInfo = this.carInfo;
+                            AcUpdateEventArgs updateArgs = new()
+                            {
+                                carInfo = this.CarInfo
+                            };
 
                             CarUpdate(this, updateArgs);
                         }
                         break;
                     case ConnectionType.LapTime:
-                        // Check if it is the right packet.
-                        System.Diagnostics.Debug.Assert(receivebytes.Length == Marshal.SizeOf<AcConverter.RTLap>());
 
-                        AcConverter.RTLap rtlap = AcConverter.bytesToStruct<AcConverter.RTLap>(receivebytes);
+                        AcConverter.RTLap rtlap = AcConverter.BytesToStruct<AcConverter.RTLap>(buffer);
 
                         // Set last lap info data.
-                        lapInfo.carName = AcHelperFunctions.SanitiseString(rtlap.carName);
-                        lapInfo.driverName = AcHelperFunctions.SanitiseString(rtlap.driverName);
-                        lapInfo.carNumber = rtlap.carIdentifierNumber;
-                        lapInfo.lapNumber = rtlap.lap;
-                        lapInfo.lapTime = TimeSpan.FromMilliseconds(rtlap.time);
+                        LapInfo.CarName = AcHelperFunctions.SanitiseString(rtlap.carName);
+                        LapInfo.DriverName = AcHelperFunctions.SanitiseString(rtlap.driverName);
+                        LapInfo.CarNumber = rtlap.carIdentifierNumber;
+                        LapInfo.LapNumber = rtlap.lap;
+                        LapInfo.LapTime = TimeSpan.FromMilliseconds(rtlap.time);
 
                         if (LapUpdate != null)
                         {
-                            AcUpdateEventArgs updateArgs = new AcUpdateEventArgs();
-                            updateArgs.lapInfo = this.lapInfo;
+                            AcUpdateEventArgs updateArgs = new()
+                            {
+                                lapInfo = this.LapInfo
+                            };
 
                             LapUpdate(this, updateArgs);
                         }   
@@ -165,8 +182,8 @@ namespace AcUdpCommunication
 
         public class AcUpdateEventArgs : EventArgs
         {
-            public LapInfo lapInfo;
-            public CarInfo carInfo;
+            public LapInfo? lapInfo;
+            public CarInfo? carInfo;
         }
     }
 

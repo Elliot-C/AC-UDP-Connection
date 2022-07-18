@@ -3,46 +3,49 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Net;
+using System.IO;
+using System.Runtime.InteropServices;
 
 namespace AcUdpCommunication
 {
     public class SessionInfo
     {
-        public string driverName { get; set; } = "drivername";
-        public string carName { get; set; } = "carname";
-        public string trackName { get; set; } = "trackname";
-        public string trackLayout { get; set; } = "tracklayout";
+        public string DriverName { get; set; } = "drivername";
+        public string CarName { get; set; } = "carname";
+        public string TrackName { get; set; } = "trackname";
+        public string TrackLayout { get; set; } = "tracklayout";
     }
 
     public class LapInfo
     {
-        public string driverName { get; set; } = "drivername";
-        public string carName { get; set; } = "carname";
-        public int carNumber { get; set; } = 0;
-        public int lapNumber { get; set; } = 0;
-        public TimeSpan lapTime { get; set; } = TimeSpan.Zero;
+        public string DriverName { get; set; } = "drivername";
+        public string CarName { get; set; } = "carname";
+        public int CarNumber { get; set; } = 0;
+        public int LapNumber { get; set; } = 0;
+        public TimeSpan LapTime { get; set; } = TimeSpan.Zero;
     }
 
     public class CarInfo
     {
 
-        public TimeSpan lastLapTime { get; set; } = TimeSpan.Zero;
-        public TimeSpan bestLapTime { get; set; } = TimeSpan.Zero;
-        public TimeSpan currentLapTime { get; set; } = TimeSpan.Zero;
+        public TimeSpan LastLapTime { get; set; } = TimeSpan.Zero;
+        public TimeSpan BestLapTime { get; set; } = TimeSpan.Zero;
+        public TimeSpan CurrentLapTime { get; set; } = TimeSpan.Zero;
 
-        public int lapNumber { get; set; }
+        public int LapNumber{ get; set; }
         
-        public float speedAsKmh { get; set; }
+        public float SpeedAsKPH { get; set; }
         public int Gear { get; set; } = 0;
-        public float maxRPM { get; private set; }
+        public float MaxRPM { get; private set; }
         private float _enginerpm = 0;
-        public float engineRPM
+        public float EngineRPM
         {
             get { return _enginerpm; }
             set
             {
-                if (value > maxRPM)
-                    maxRPM = value;
+                if (value > MaxRPM)
+                    MaxRPM = value;
                 _enginerpm = value;
             }
         }
@@ -53,7 +56,7 @@ namespace AcUdpCommunication
         public static string SanitiseString(string instring)
         {
             int index = instring.IndexOf('%');
-            return instring.Substring(0, index);
+            return instring[..index];
         }
     }
 }

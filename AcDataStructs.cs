@@ -10,7 +10,7 @@ namespace AcUdpCommunication
     internal static class AcConverter
     {
         // Copy structure to new memory, return array (pointer) of raw bytes.
-        public static byte[] structToBytes<T>(T str) where T : struct
+        public static byte[] StructToBytes<T>(T str) where T : struct
         {
             int size = Marshal.SizeOf<T>();
             byte[] arr = new byte[size];
@@ -22,7 +22,7 @@ namespace AcUdpCommunication
         }
 
         // Copy bytes to memory, return object from those bytes.
-        public static T bytesToStruct<T>(byte[] bytes) where T : struct
+        public static T BytesToStruct<T>(byte[] bytes) where T : struct
         {
             T str = default(T);
             int size = Marshal.SizeOf(str);
@@ -30,15 +30,15 @@ namespace AcUdpCommunication
             Marshal.Copy(bytes, 0, ptr, size);
             str = Marshal.PtrToStructure<T>(ptr);
             Marshal.FreeHGlobal(ptr);
-                         
+
             return str;
         }
 
         // Data to send for initial handshake, update mode selection, and dismissal.
         [StructLayout(LayoutKind.Sequential, Pack = 0)]
-        public struct handshaker
+        public struct Handshaker
         {
-            public handshaker(HandshakeOperation operationId, uint identifier = 1, uint version = 1)
+            public Handshaker(HandshakeOperation operationId, uint identifier = 1, uint version = 1)
             {
                 this.identifier = identifier;
                 this.version = version;
@@ -53,7 +53,7 @@ namespace AcUdpCommunication
 
             [MarshalAs(UnmanagedType.U4)]
             public HandshakeOperation operationId; // Type of handshake packet.
-            
+
             public enum HandshakeOperation
             {
                 Connect,
@@ -64,7 +64,7 @@ namespace AcUdpCommunication
         }
 
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode, Pack = 1)]
-        public struct handshakerResponse
+        public struct HandshakerResponse
         {
             [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 50)]
             public string carName;
@@ -106,101 +106,114 @@ namespace AcUdpCommunication
 
         [StructLayout(LayoutKind.Explicit, CharSet = CharSet.Unicode, Pack = 1, Size = 328)]
         public struct RTCarInfo
-        {          
-            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 2), FieldOffset(0 * 4)]
-            public string identifier;
-            [MarshalAs(UnmanagedType.U4), FieldOffset(1 * 4)]
+        {
+            [FieldOffset(0 * 4)]
+            public char identifier;
+            [FieldOffset(1 * 4)]
             public int size;
 
-            [MarshalAs(UnmanagedType.R4), FieldOffset(2 * 4)]
+            [FieldOffset(2 * 4)]
             public float speed_Kmh;
-            [MarshalAs(UnmanagedType.R4), FieldOffset(3 * 4)]
+            [FieldOffset(3 * 4)]
             public float speed_Mph;
-            [MarshalAs(UnmanagedType.R4), FieldOffset(4 * 4)]
+            [FieldOffset(4 * 4)]
             public float speed_Ms;
-            
-            [MarshalAs(UnmanagedType.U1), FieldOffset(5 * 4)]
+
+            [FieldOffset(5 * 4)]
             public bool isAbsEnabled;
-            [MarshalAs(UnmanagedType.U1), FieldOffset(5 * 4 + 1)]
+            [FieldOffset(5 * 4 + 1)]
             public bool isAbsInAction;
-            [MarshalAs(UnmanagedType.U1), FieldOffset(5 * 4 + 2)]
+            [FieldOffset(5 * 4 + 2)]
             public bool isTcInAction;
-            [MarshalAs(UnmanagedType.U1), FieldOffset(5 * 4 + 3)]
+            [FieldOffset(5 * 4 + 3)]
             public bool isTcEnabled;
-            [MarshalAs(UnmanagedType.U1), FieldOffset(6 * 4 + 2)]
+            [FieldOffset(6 * 4 + 2)]
             public bool isInPit;
-            [MarshalAs(UnmanagedType.U1), FieldOffset(6 * 4 + 3)]
+            [FieldOffset(6 * 4 + 3)]
             public bool isEngineLimiterOn;
-            
-            [MarshalAs(UnmanagedType.R4), FieldOffset(7 * 4)]
+
+            [FieldOffset(7 * 4)]
             public float accG_vertical;
-            [MarshalAs(UnmanagedType.R4), FieldOffset(8 * 4)]
+            [FieldOffset(8 * 4)]
             public float accG_horizontal;
-            [MarshalAs(UnmanagedType.R4), FieldOffset(9 * 4)]
+            [FieldOffset(9 * 4)]
             public float accG_frontal;
 
-            [MarshalAs(UnmanagedType.U4), FieldOffset(10 * 4)]
+            [FieldOffset(10 * 4)]
             public int lapTime;
-            [MarshalAs(UnmanagedType.U4), FieldOffset(11 * 4)]
+            [FieldOffset(11 * 4)]
             public int lastLap;
-            [MarshalAs(UnmanagedType.U4), FieldOffset(12 * 4)]
+            [FieldOffset(12 * 4)]
             public int bestLap;
-            [MarshalAs(UnmanagedType.U4), FieldOffset(13 * 4)]
+            [FieldOffset(13 * 4)]
             public int lapCount;
 
-            [MarshalAs(UnmanagedType.R4), FieldOffset(14 * 4)]
+            [FieldOffset(14 * 4)]
             public float gas;
-            [MarshalAs(UnmanagedType.R4), FieldOffset(15 * 4)]
+            [FieldOffset(15 * 4)]
             public float brake;
-            [MarshalAs(UnmanagedType.R4), FieldOffset(16 * 4)]
+            [FieldOffset(16 * 4)]
             public float clutch;
-            [MarshalAs(UnmanagedType.R4), FieldOffset(17 * 4)]
+            [FieldOffset(17 * 4)]
             public float engineRPM;
-            [MarshalAs(UnmanagedType.R4), FieldOffset(18 * 4)]
+            [FieldOffset(18 * 4)]
             public float steer;
-            [MarshalAs(UnmanagedType.U4), FieldOffset(19 * 4)]
+            [FieldOffset(19 * 4)]
             public int gear;
-            [MarshalAs(UnmanagedType.R4), FieldOffset(20 * 4)]
+            [FieldOffset(20 * 4)]
             public float cgHeight;
 
-            [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.R4, SizeConst = 4), FieldOffset(21 * 4)]
-            public float[] wheelAngularSpeed;
-            [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.R4, SizeConst = 4), FieldOffset(25 * 4)]
-            public float[] slipAngle;
-            [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.R4, SizeConst = 4), FieldOffset(29 * 4)]
-            public float[] slipAngle_ContactPatch;
-            [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.R4, SizeConst = 4), FieldOffset(33 * 4)]
-            public float[] slipRatio;
-            [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.R4, SizeConst = 4), FieldOffset(37 * 4)]
-            public float[] tyreSlip;
-            [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.R4, SizeConst = 4), FieldOffset(41 * 4)]
-            public float[] ndSlip;
-            [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.R4, SizeConst = 4), FieldOffset(45 * 4)]
-            public float[] load;
-            [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.R4, SizeConst = 4), FieldOffset(49 * 4)]
-            public float[] Dy;
-            [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.R4, SizeConst = 4), FieldOffset(53 * 4)]
-            public float[] Mz;
-            [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.R4, SizeConst = 4), FieldOffset(57 * 4)]
-            public float[] tyreDirtyLevel;
-            
-            [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.R4, SizeConst = 4), FieldOffset(61 * 4)]
-            public float[] camberRAD;
-            [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.R4, SizeConst = 4), FieldOffset(65 * 4)]
-            public float[] tyreRadius;
-            [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.R4, SizeConst = 4), FieldOffset(69 * 4)]
-            public float[] tyreLoadedRadius;
-            [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.R4, SizeConst = 4), FieldOffset(73 * 4)]
-            public float[] suspensionHeight;
+            [FieldOffset(21 * 4)]
+            public PerWheel wheelAngularSpeed;
+            [FieldOffset(25 * 4)]
+            public PerWheel slipAngle;
+            [FieldOffset(29 * 4)]
+            public PerWheel slipAngle_ContactPatch;
+            [FieldOffset(33 * 4)]
+            public PerWheel slipRatio;
+            [ FieldOffset(37 * 4)]
+            public PerWheel tyreSlip;
+            [FieldOffset(41 * 4)]
+            public PerWheel ndSlip;
+            [ FieldOffset(45 * 4)]
+            public PerWheel load;
+            [FieldOffset(49 * 4)]
+            public PerWheel Dy;
+            [FieldOffset(53 * 4)]
+            public PerWheel Mz;
+            [FieldOffset(57 * 4)]
+            public PerWheel tyreDirtyLevel;
 
-            [MarshalAs(UnmanagedType.R4), FieldOffset(77 * 4)]
+            [FieldOffset(61 * 4)]
+            public PerWheel camberRAD;
+            [FieldOffset(65 * 4)]
+            public PerWheel tyreRadius;
+            [FieldOffset(69 * 4)]
+            public PerWheel tyreLoadedRadius;
+            [FieldOffset(73 * 4)]
+            public PerWheel suspensionHeight;
+
+            [FieldOffset(77 * 4)]
             public float carPositionNormalized;
-            [MarshalAs(UnmanagedType.R4), FieldOffset(78 * 4)]
+            [FieldOffset(78 * 4)]
             public float carSlope;
-            [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.R4, SizeConst = 3), FieldOffset(79 * 4)]
-            public float[] carCoordinates;
-            
-        };
-    }   
+            [FieldOffset(79 * 4)]
+            public Coordinates carCoordinates;
 
+        };
+    }
+
+    public struct PerWheel
+    {
+        public float LF;
+        public float RF;
+        public float LR;
+        public float RR;
+    }
+    public struct Coordinates
+    {
+        public float X;
+        public float Y;
+        public float Z;
+    }
 }
